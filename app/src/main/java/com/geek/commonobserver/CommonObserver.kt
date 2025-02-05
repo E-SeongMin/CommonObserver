@@ -1,26 +1,36 @@
 package com.geek.commonobserver
 
+import androidx.lifecycle.Observer
+
 object CommonObserver {
 
-    private val observers = mutableMapOf<Class<*>, Any>()
+    private val observerMap = mutableMapOf<Class<*>, MutableSet<Any>>()
 
     fun <T : Any> registerObserver(event: Class<T>, observer: T) {
-        if (!observers.contains(event)) {
-            observers[event] = observer
-        }
+        observerMap.getOrPut(event) { mutableSetOf() }.add(observer)
     }
 
-    fun <T : Any> unregisterObserver(event: Class<T>) {
-        if (observers.contains(event)) {
-            observers.remove(event)
+    fun <T : Any> unregisterObserver(event: Class<T>, observer: T) {
+        observerMap[event]?.let { observerSet ->
+            if (observerSet.contains(observer)) {
+                observerSet.remove(observer)
+            }
+
+            if (observerSet.isEmpty()) {
+                observerMap.remove(event)
+            }
         }
     }
 
     fun <T : Any> sendMessage(event: Class<T>, action: (T) -> Unit) {
-        if (observers.contains(event)) {
+        if (observerMap.contains(event)) {
             try {
-                val currentObserver = observers[event] as? T
-                currentObserver?.let(action)
+                observerMap[event]?.let { observerSet ->
+                    observerSet.forEach { observer ->
+                        val currentObserver = observer as T
+                        currentObserver.let(action)
+                    }
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -28,6 +38,6 @@ object CommonObserver {
     }
 
     fun unregisterAllObserver() {
-        observers.clear()
+        observerMap.clear()
     }
 }
