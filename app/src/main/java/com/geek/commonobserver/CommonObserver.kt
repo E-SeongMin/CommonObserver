@@ -7,22 +7,26 @@ object CommonObserver {
     private val observerMap = mutableMapOf<Class<*>, MutableSet<Any>>()
 
     fun <T : Any> registerObserver(observer: T) {
-        val eventKey = observer::class.superclasses.find { BaseObserverEvent::class.java.isAssignableFrom(it.java) }?.java
-        eventKey?.let { event ->
-            observerMap.getOrPut(event) { mutableSetOf() }.add(observer)
+        val eventKeyList = observer::class.superclasses.filter { BaseObserverEvent::class.java.isAssignableFrom(it.java) }.map { it.java }
+        eventKeyList.forEach { eventKey ->
+            eventKey.let { event ->
+                observerMap.getOrPut(event) { mutableSetOf() }.add(observer)
+            }
         }
     }
 
     fun <T : Any> unregisterObserver(observer: T) {
-        val eventKey = observer::class.superclasses.find { BaseObserverEvent::class.java.isAssignableFrom(it.java) }?.java
-        eventKey?.let { event ->
-            observerMap[event]?.let { observerSet ->
-                if (observerSet.contains(observer)) {
-                    observerSet.remove(observer)
-                }
+        val eventKeyList = observer::class.superclasses.filter { BaseObserverEvent::class.java.isAssignableFrom(it.java) }.map { it.java }
+        eventKeyList.forEach { eventKey ->
+            eventKey.let { event ->
+                observerMap[event]?.let { observerSet ->
+                    if (observerSet.contains(observer)) {
+                        observerSet.remove(observer)
+                    }
 
-                if (observerSet.isEmpty()) {
-                    observerMap.remove(event)
+                    if (observerSet.isEmpty()) {
+                        observerMap.remove(event)
+                    }
                 }
             }
         }
