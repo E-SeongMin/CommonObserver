@@ -1,0 +1,3 @@
+package com.geek.commonobserver
+
+interface BaseObserverEvent
