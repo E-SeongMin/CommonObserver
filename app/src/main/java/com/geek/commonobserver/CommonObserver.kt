@@ -1,53 +1,45 @@
 package com.geek.commonobserver
 
+import com.geek.commonobserver.event.EventKey
+import kotlin.reflect.full.hasAnnotation
 import kotlin.reflect.full.superclasses
 
 object CommonObserver {
 
     private val observerMap = mutableMapOf<Class<*>, MutableSet<Any>>()
 
-    fun <T : Any> registerObserver(observer: T) {
-        val eventKeyList = observer::class.superclasses.filter { BaseObserverEvent::class.java.isAssignableFrom(it.java) }.map { it.java }
-        eventKeyList.forEach { eventKey ->
-            eventKey.let { event ->
-                observerMap.getOrPut(event) { mutableSetOf() }.add(observer)
-            }
-        }
+    fun <T : Any> registerObserver(observer: T, event: Class<T>? = null) {
+        val eventKeys = event?.let { listOf(it) } ?: getEventKeys(observer)
+        eventKeys.forEach { addObserver(observer, it) }
     }
 
-    fun <T : Any> unregisterObserver(observer: T) {
-        val eventKeyList = observer::class.superclasses.filter { BaseObserverEvent::class.java.isAssignableFrom(it.java) }.map { it.java }
-        eventKeyList.forEach { eventKey ->
-            eventKey.let { event ->
-                observerMap[event]?.let { observerSet ->
-                    if (observerSet.contains(observer)) {
-                        observerSet.remove(observer)
-                    }
+    fun <T : Any> unregisterObserver(observer: T, event: Class<T>? = null) {
+        val eventKeys = event?.let { listOf(it) } ?: getEventKeys(observer)
+        eventKeys.forEach { removeObserver(observer, it) }
+    }
 
-                    if (observerSet.isEmpty()) {
-                        observerMap.remove(event)
-                    }
-                }
-            }
+    private fun getEventKeys(observer: Any): List<Class<*>> {
+        return observer::class.superclasses
+            .filter { it.hasAnnotation<EventKey>() }
+            .map { it.java }
+    }
+
+    private fun addObserver(observer: Any, event: Class<*>) {
+        observerMap.getOrPut(event) { mutableSetOf() }.add(observer)
+    }
+
+    private fun removeObserver(observer: Any, event: Class<*>) {
+        observerMap[event]?.apply {
+            remove(observer)
+            if (isEmpty()) observerMap.remove(event)
         }
     }
 
     fun <T : Any> sendMessage(event: Class<T>, action: (T) -> Unit) {
-        if (observerMap.contains(event)) {
-            try {
-                observerMap[event]?.let { observerSet ->
-                    observerSet.forEach { observer ->
-                        val currentObserver = observer as? T
-                        currentObserver?.let(action)
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
+        observerMap[event]?.forEach { (it as? T)?.let(action) }
     }
 
-    fun unregisterAllObserver() {
+    fun unregisterAllObservers() {
         observerMap.clear()
     }
 }
