@@ -48,9 +48,7 @@ object CommonObserver {
     }
 
     private fun getEventKeyList(observer: Any): List<Class<*>> {
-        return observer::class.superclasses
-            .filter { it.hasAnnotation<EventKey>() }
-            .map { it.java }
+        return observer::class.superclasses.mapNotNull { it.takeIf { it.hasAnnotation<EventKey>() }?.java }
     }
 
     private fun add(observer: Any, event: Class<*>) {
