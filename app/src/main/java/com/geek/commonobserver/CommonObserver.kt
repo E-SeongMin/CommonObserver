@@ -12,30 +12,27 @@ object CommonObserver {
 
     fun <T : Any> registerObserver(observer: T, event: Class<*>? = null) {
         try {
-            val eventKeyList = event?.let { listOf(it) } ?: getEventKeyList(observer)
-            if (eventKeyList.isEmpty()) { return }
-                eventKeyList.forEach { add(observer, it) }
+            processObserver(event, observer) { add(it, observer) }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("CommonObserver", "registerObserver fail : ${e.message}", e)
         }
     }
 
     fun <T : Any> unregisterObserver(observer: T, event: Class<*>? = null) {
         try {
-            val eventKeys = event?.let { listOf(it) } ?: getEventKeyList(observer)
-            eventKeys.forEach { remove(observer, it) }
+            processObserver(event, observer) { remove(it, observer) }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("CommonObserver", "unregisterObserver fail : ${e.message}", e)
         }
     }
 
     fun <T : Any> sendMessage(event: Class<T>, onSuccessAction: (T) -> Unit, onFailAction: (() -> Unit)? = null) {
         try {
-            observerMap[event]?.run {
-                forEach { observer -> (observer as? T)?.let(onSuccessAction) }
+            observerMap[event]?.forEach { observer ->
+                (observer as? T)?.let(onSuccessAction)
             } ?: onFailAction?.invoke()
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("CommonObserver", "sendMessage fail : ${e.message}", e)
         }
     }
 
@@ -43,24 +40,32 @@ object CommonObserver {
         try {
             observerMap.clear()
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("CommonObserver", "unregisterAllObservers fail : ${e.message}", e)
         }
     }
 
     private fun getEventKeyList(observer: Any): List<Class<*>> {
-        return observer::class.superclasses.mapNotNull { it.takeIf { it.hasAnnotation<EventKey>() }?.java }
+        return observer::class.superclasses
+            .filter { it.hasAnnotation<EventKey>() }
+            .map { it.java }
     }
 
-    private fun add(observer: Any, event: Class<*>) {
-        Log.d("CommonObserver", "add event : ${event.simpleName}, observer: ${observer.javaClass.simpleName}")
+    private fun add(event: Class<*>, observer: Any) {
+        Log.d("CommonObserver", "add event: ${event.simpleName}, observer: ${observer.javaClass.simpleName}")
         observerMap.getOrPut(event) { mutableSetOf() }.add(observer)
     }
 
-    private fun remove(observer: Any, event: Class<*>) {
+    private fun remove(event: Class<*>, observer: Any) {
         observerMap[event]?.apply {
-            Log.d("CommonObserver", "remove event : ${event.simpleName}, observer: ${observer.javaClass.simpleName}")
+            Log.d("CommonObserver", "remove event: ${event.simpleName}, observer: ${observer.javaClass.simpleName}")
             remove(observer)
             if (isEmpty()) observerMap.remove(event)
         }
+    }
+
+    private fun <T : Any> processObserver(event: Class<*>?, observer: T, action: (Class<*>) -> Unit) {
+        if (event?.isAnnotationPresent(EventKey::class.java) == false) return
+
+        event?.let(action) ?: getEventKeyList(observer).takeIf { it.isNotEmpty() }?.forEach(action)
     }
 }
